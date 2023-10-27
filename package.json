@@ -1,0 +1,26 @@
+{
+  "name": "app-reference",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "build": "bun run build:clean && bun run build:bundle && bun run build:copyfiles",
+    "build:clean": "rimraf ./build",
+    "build:bundle": "bun build ./src/index.ts --outdir ./build --minify",
+    "build:copyfiles": "copyfiles -u=1 ./src/*.html ./src/*.css ./build",
+    "start": "http-server -c-1 ./build"
+  },
+  "devDependencies": {
+    "@types/leaflet": "^1.9.7",
+    "@types/plotly.js-dist-min": "^2.3.3",
+    "@types/web": "^0.0.119",
+    "bun-types": "latest",
+    "copyfiles": "latest",
+    "http-server": "latest",
+    "leaflet": "^1.9.4",
+    "plotly.js-dist-min": "^2.27.0",
+    "rimraf": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "latest"
+  }
+}

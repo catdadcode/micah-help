@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>App Reference</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" href="styles.css" />
+		<script src="index.js" defer></script>
+	</head>
+	<body>
+		<div id="map"></div>
+		<label for="hospitalDropdown">Select Hospital:</label>
+		<select id="hospitalDropdown" style="margin-bottom: 5px;"></select>
+		<button id="submitButton" style="margin: 5px 0">Plot</button>
+		<div class="graph-container">
+			<div id="admissionsGraph" />
+			<div id="dischargeGraph" />
+		</div>
+		<!-- Map legend -->
+		<div syle="position: absolute; top: 10px; right: 10px; z-index: 1000">
+			<div style="background-color: rgba(255, 255, 255, 0.8); padding: 10px; border-radius: 5px;">
+				<div>
+					<span style="background-color: red; display: inline-block; width: 12px; height: 12px; margin-right: 5px;"></span>
+					Above Average Bed Occupancy
+				</div>
+				<div>
+					<span style="background-color: blue; display: inline-block; width: 12px; height: 12px; margin-right: 5px;"></span>
+					At Or Below Average Bed Capacity
+				</div>
+			</div>
+		</div>
+		<div id="dischargePlotlyGraph" style="margin: 5px 0" />
+		<div id="admissionsPlotlyGraph" style="margin: 5px 0" />
+		<div id="losPlotlyGraph" style="margin: 5px 0" />
+		<h2>Bed Occupancy Forecast</h2>
+		<table id="bedOccupancyTable">
+			<thead>
+				<tr>
+					<th>Date</th>
+					<th>Hospital</th>
+					<th>Beds Occupied</th>
+					<th>Beds Available</th>
+					<th>Total Beds</th>
+				</tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+	</body>
+</html>
