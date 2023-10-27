@@ -2,20 +2,20 @@
 
 <html lang="en">
   <head>
-    <link
-      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
-      rel="stylesheet"
-    />
-    <meta charset="utf-8" />
     <title>Admissions and Discharge Forecast</title>
+    <meta charset="utf-8" />
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+	<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+	<script src="Filtered_Admissions_Above_Average_with_Loc.js"></script>
+    <link
+		rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+    />
     <style>
       .graph-container {
         display: flex;
         justify-content: space-between;
       }
-    </style>
-    <style>
       #map {
         height: 400px;
         width: 90%;
@@ -29,8 +29,6 @@
   <body>
     <body>
       <div id="map"></div>
-      <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-      <script src="Filtered_Admissions_Above_Average_with_Loc.js"></script>
       <script>
         // Check if Leaflet is loaded
         if (typeof L === "undefined") {
