@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<title>App Reference</title>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<link rel="stylesheet" href="leaflet.css" />
+		<link rel="stylesheet" href="https://rsms.me/inter/inter.css">
+		<link rel="stylesheet" href="styles.css" />
+		<script src="index.js" defer></script>
+	</head>
+	<body class="px-20 pt-10 bg-slate-300 flex flex-col justify-center align-center w-screen">
+		<div class="relative h-96 w-full rounded-md overflow-hidden shadow-md shadow-slate-400">
+			<div id="map" class="h-full w-full"></div>
+			<!-- Map legend -->
+			<div class="absolute top-4 right-4 z-[1000]">
+				<div class="bg-gray-400 text-md p-6 rounded-lg shadow-sm shadow-slate-400 font-medium">
+					<div>
+						<span class="bg-red-700 inline-block w-4 h-4 mr-5 vertical-align-middle"></span>
+						<span class="vertical-align-middle">Above Average Bed Occupancy</span>
+					</div>
+					<div>
+						<span class="bg-blue-700 inline-block w-4 h-4 mr-5 vertical-align-middle"></span>
+						<span class="vertical-align-middle">At Or Below Average Bed Occupancy</span>
+					</div>
+				</div>
+			</div>
+			<div class="text-center text-3xl absolute bottom-4 left-4 z-[1000]">
+				<select id="hospitalDropdown" class="w-96 h-16 text-2xl bg-gray-200 font-semibold border border-gray-300 rounded-lg p-4 shadow-sm shadow-slate-400 animate-bounce"></select>
+			</div>
+		</div>
+		<div id="bedOccupancyTable" class="mt-10 p-5 bg-white shadow-md shadow-slate-400 rounded-lg border border-slate-400 hidden">
+			<table class="border-collapse min-w-full bg-white shadow-sm shadow-slate-400 rounded-lg overflow-hidden">
+				<caption class="caption-top mb-5 text-lg">
+					Bed Occupancy Forecast
+				</caption>
+				<thead class="bg-gray-300 rounded-t-lg overflow-hidden">
+					<tr>
+						<th class="py-2 px-4 border border-slate-400 text-left font-medium">Date</th>
+						<th class="py-2 px-4 border border-slate-400 text-left font-medium">Hospital</th>
+						<th class="py-2 px-4 border border-slate-400 text-left font-medium">Beds Occupied</th>
+						<th class="py-2 px-4 border border-slate-400 text-left font-medium">Beds Available</th>
+						<th class="py-2 px-4 border border-slate-400 text-left font-medium">Total Beds</th>
+					</tr>
+				</thead>
+				<tbody>
+					<!-- Rows go here -->
+				</tbody>
+			</table>
+		</div>
+		<div class="mt-5 grid grid-cols-2 gap-5">
+			<div id="admissionsGraph" class="shadow-md shadow-slate-400 rounded-lg overflow-hidden"></div>
+			<div id="admissionsHeatMap" class="shadow-md shadow-slate-400 rounded-lg overflow-hidden"></div>
+			<div id="dischargeGraph" class="shadow-md shadow-slate-400 rounded-lg overflow-hidden"></div>
+			<div id="dischargesHeatMap" class="shadow-md shadow-slate-400 rounded-lg overflow-hidden"></div>
+			<div id="losGraph" class="shadow-md shadow-slate-400 rounded-lg overflow-hidden col-span-2"></div>
+		</div>
+	</body>
+</html>
