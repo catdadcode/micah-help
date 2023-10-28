@@ -1,0 +1,782 @@
+<!doctype html>
+
+<html lang="en">
+  <head>
+    <link
+      href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css"
+      rel="stylesheet"
+    />
+    <meta charset="utf-8" />
+    <title>Admissions and Discharge Forecast</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+      .graph-container {
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+    <style>
+      #map {
+        height: 400px;
+        width: 90%;
+        margin: 0px;
+        border: 1px solid #aaa;
+        border-radius: 8px;
+        overflow: hidden;
+      }
+    </style>
+  </head>
+  <body>
+    <body>
+      <div id="map"></div>
+      <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+      <script src="Filtered_Admissions_Above_Average_with_Loc.js"></script>
+      <script>
+        // Check if Leaflet is loaded
+        if (typeof L === "undefined") {
+          console.error("Leaflet is not loaded");
+        } else {
+          console.log("Leaflet is loaded");
+        }
+
+        // Check if data is loaded
+        if (typeof filteredAdmissionsAboveAvg === "undefined") {
+          console.error("Data is not loaded");
+        } else {
+          console.log("Data is loaded");
+        }
+
+        // Determine the latest date in the dataset
+        const dates = filteredAdmissionsAboveAvg.map((item) => item.ds);
+        const latestDate = dates.reduce((a, b) => (a > b ? a : b));
+        console.log(`Latest Date in Dataset: ${latestDate}`);
+
+        // Filter data based on the latest date and valid latitude and longitude values
+        const filteredData = filteredAdmissionsAboveAvg.filter(
+          (item) =>
+            item.ds === latestDate &&
+            item.long >= 45 &&
+            item.long <= 49 &&
+            item.lat >= -125 &&
+            item.lat <= -116,
+        );
+        console.log(`Filtered Data Count: ${filteredData.length}`);
+        console.log("Filtered Data Points:", filteredData);
+
+        // Initialize the map
+        const map = L.map("map").setView([47.7511, -120.7401], 7); // Centered on Washington State
+
+        // Add base map layer
+        L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+          attribution:
+            '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        }).addTo(map);
+
+        // Add markers to the map
+        filteredData.forEach((item) => {
+          const color = item.above_avg ? "red" : "blue";
+          const marker = L.circleMarker([item.long, item.lat], {
+            color: color,
+            fillColor: color,
+            fillOpacity: 0.5,
+            radius: 5,
+          }).addTo(map);
+
+          // Add popup to display hospital name on click
+          marker.bindPopup(item.hospital_name);
+          marker.on("click", function () {
+            const hospitalName = this.getPopup().getContent();
+            document.getElementById("hospitalDropdown").value = hospitalName;
+            changeHospital(item.hospital_name);
+          });
+        });
+
+        // Adjusting map bounds to fit all markers
+        const group = new L.featureGroup(
+          filteredData.map((item) => L.circleMarker([item.long, item.lat])),
+        );
+        map.fitBounds(group.getBounds());
+      </script>
+    </body>
+    <label for="hospitalSelector">Select Hospital: </label>
+    <select id="admit-hospitalSelector" style="margin-bottom: 5px"></select>
+    <button id="admit-plotButton" style="margin: 5px 0">Plot</button>
+    <div class="graph-container">
+      <div id="admissions-graph"></div>
+      <div id="discharge-graph"></div>
+    </div>
+    <!-- JavaScript files will be added after this -->
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="Filtered_All_Hospitals_Admissions_Forecast.js"></script>
+    <script src="plotlyGraphGenerator.js"></script>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="Filtered_All_Hospitals_Discharges_Forecast.js"></script>
+    <script src="dischargePlotlyGraphGenerator.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", (event) => {
+        // Extract unique hospital names for dropdown menu
+        const hospitalNames = [
+          ...new Set(filteredAdmissions.map((d) => d.hospital_name)),
+        ];
+
+        // Populate the dropdown menu
+        const selector = document.getElementById("hospitalSelector");
+        hospitalNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.text = name;
+          option.value = name;
+          selector.appendChild(option);
+        });
+
+        // Add event listener to the button
+        document
+          .getElementById("plotButton")
+          .addEventListener("click", function () {
+            const selectedHospital = selector.value;
+            const hospitalData = filteredAdmissions.filter(
+              (d) => d.hospital_name === selectedHospital,
+            );
+
+            const trace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat),
+              line: { shape: "spline" },
+            };
+
+            const layout = {
+              title: `Hospital Admissions Forecast - ${selectedHospital}`,
+              xaxis: { title: "Date" },
+              yaxis: { title: "Admissions Forecast" },
+            };
+
+            // Plot
+            Plotly.newPlot("admissions-graph", [trace], layout);
+          });
+      });
+    </script>
+    <script>
+      document.addEventListener("DOMContentLoaded", (event) => {
+        // Extract unique hospital names for dropdown menu
+        const hospitalNames = [
+          ...new Set(filteredDischarges.map((d) => d.hospital_name)),
+        ];
+
+        // Populate the dropdown menu
+        const selector = document.getElementById("hospitalSelector");
+        hospitalNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.text = name;
+          option.value = name;
+          selector.appendChild(option);
+        });
+
+        // Add event listener to the button
+        document
+          .getElementById("plotButton")
+          .addEventListener("click", function () {
+            const selectedHospital = selector.value;
+            const hospitalData = filteredDischarges.filter(
+              (d) => d.hospital_name === selectedHospital,
+            );
+
+            const trace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat),
+              line: { shape: "spline" },
+            };
+
+            const layout = {
+              title: `Hospital Discharges Forecast - ${selectedHospital}`,
+              xaxis: { title: "Date" },
+              yaxis: { title: "Discharges Forecast" },
+            };
+
+            // Plot
+            Plotly.newPlot("discharge-graph", [trace], layout);
+          });
+      });
+    </script>
+    <div
+      id="map-legend"
+      style="position: absolute; top: 10px; right: 10px; z-index: 1000"
+    >
+      <div
+        id="legend"
+        style="
+          background-color: rgba(255, 255, 255, 0.8);
+          padding: 10px;
+          border-radius: 5px;
+        "
+      >
+        <div>
+          <span
+            style="
+              background-color: red;
+              display: inline-block;
+              width: 12px;
+              height: 12px;
+              margin-right: 5px;
+            "
+          ></span>
+          Above Average Bed Occupancy
+        </div>
+        <div>
+          <span
+            style="
+              background-color: blue;
+              display: inline-block;
+              width: 12px;
+              height: 12px;
+              margin-right: 5px;
+            "
+          ></span>
+          At Or Below Average Bed Capacity
+        </div>
+      </div>
+    </div>
+    <div id="discharge-plotly-graph" style="margin: 5px 0"></div>
+    <div id="admit-plotly-graph" style="margin: 5px 0"></div>
+    <div id="los-plotly-graph" style="margin: 5px 0"></div>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="Filtered_All_Hospitals_LOS_Forecast.js"></script>
+    <script src="losPlotlyGraphGenerator.js"></script>
+    <script>
+      document.addEventListener("DOMContentLoaded", (event) => {
+        // Extract unique hospital names for dropdown menu
+        const hospitalNames = [
+          ...new Set(filteredAdmissions.map((d) => d.hospital_name)),
+        ];
+
+        // Populate the dropdown menu
+        const selector = document.getElementById("admit-hospitalSelector");
+        hospitalNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.text = name;
+          option.value = name;
+          selector.appendChild(option);
+        });
+
+        // Add event listener to the button
+        document
+          .getElementById("admit-plotButton")
+          .addEventListener("click", function () {
+            const selectedHospital = selector.value;
+            const hospitalData = filteredAdmissions.filter(
+              (d) => d.hospital_name === selectedHospital,
+            );
+
+            function formatDateWithDay(dateString) {
+              const days = [
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+              ];
+              const date = new Date(dateString);
+              const dayOfWeek = days[date.getDay()];
+              return `${dateString} (${dayOfWeek})`;
+            }
+
+            const trace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat),
+              line: { shape: "spline" },
+              name: "Estimate",
+              text: hospitalData.map((d) => formatDateWithDay(d.ds)), // Add this line
+            };
+
+            const upperTrace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat_upper),
+              line: { shape: "spline", color: "blue" },
+              fill: "tonexty",
+              name: "Upper Estimate",
+            };
+
+            const layout = {
+              title: `Hospital Admission Forecast - ${selectedHospital}`,
+              xaxis: { title: "Date" },
+              yaxis: { title: "Admission Forecast" },
+            };
+
+            const lowerTrace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat_lower),
+              line: { shape: "spline", color: "green" },
+              fill: "tonexty",
+              name: "Lower Estimate",
+            };
+
+            // Plot
+            Plotly.newPlot(
+              "admit-plotly-graph",
+              [trace, lowerTrace, upperTrace],
+              layout,
+            );
+          });
+      });
+    </script>
+    <script>
+      document.addEventListener("DOMContentLoaded", (event) => {
+        // Extract unique hospital names for dropdown menu
+        const hospitalNames = [
+          ...new Set(filteredDischarges.map((d) => d.hospital_name)),
+        ];
+
+        // Populate the dropdown menu
+        const selector = document.getElementById("discharge-hospitalSelector");
+        hospitalNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.text = name;
+          option.value = name;
+          selector.appendChild(option);
+        });
+
+        // Add event listener to the button
+        document
+          .getElementById("discharge-plotButton")
+          .addEventListener("click", function () {
+            const selectedHospital = selector.value;
+            const hospitalData = filteredDischarges.filter(
+              (d) => d.hospital_name === selectedHospital,
+            );
+
+            const trace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat),
+              line: { shape: "spline" },
+            };
+
+            const layout = {
+              title: `Hospital Discharges Forecast - ${selectedHospital}`,
+              xaxis: { title: "Date" },
+              yaxis: { title: "Discharges Forecast" },
+            };
+
+            // Plot
+            Plotly.newPlot("discharge-plotly-graph", [trace], layout);
+          });
+      });
+    </script>
+    <script>
+      document.addEventListener("DOMContentLoaded", (event) => {
+        // Extract unique hospital names for dropdown menu
+        const hospitalNames = [
+          ...new Set(filteredLOS.map((d) => d.hospital_name)),
+        ];
+
+        // Populate the dropdown menu
+        const selector = document.getElementById("los-hospitalSelector");
+        hospitalNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.text = name;
+          option.value = name;
+          selector.appendChild(option);
+        });
+
+        // Add event listener to the button
+        document
+          .getElementById("los-plotButton")
+          .addEventListener("click", function () {
+            const selectedHospital = selector.value;
+            const hospitalData = filteredLOS.filter(
+              (d) => d.hospital_name === selectedHospital,
+            );
+
+            const trace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat),
+              line: { shape: "spline" },
+            };
+
+            const layout = {
+              title: `Hospital LOS Forecast - ${selectedHospital}`,
+              xaxis: { title: "Date" },
+              yaxis: { title: "LOS Forecast" },
+            };
+
+            // Plot
+            Plotly.newPlot("los-plotly-graph", [trace], layout);
+          });
+      });
+    </script>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", (event) => {
+        // Extract unique hospital names for dropdown menu
+        const hospitalNames = [
+          ...new Set(filteredDischarges.map((d) => d.hospital_name)),
+        ];
+
+        // Populate the dropdown menu
+        const selector = document.getElementById("admit-hospitalSelector");
+        hospitalNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.text = name;
+          option.value = name;
+          selector.appendChild(option);
+        });
+
+        // Add event listener to the button
+        document
+          .getElementById("admit-plotButton")
+          .addEventListener("click", function () {
+            const selectedHospital = selector.value;
+            const hospitalData = filteredDischarges.filter(
+              (d) => d.hospital_name === selectedHospital,
+            );
+
+            function formatDateWithDay(dateString) {
+              const days = [
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+              ];
+              const date = new Date(dateString);
+              const dayOfWeek = days[date.getDay()];
+              return `${dateString} (${dayOfWeek})`;
+            }
+
+            const trace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat),
+              line: { shape: "spline" },
+              name: "Estimate",
+              text: hospitalData.map((d) => formatDateWithDay(d.ds)), // Add this line
+            };
+
+            const upperTrace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat_upper),
+              line: { shape: "spline", color: "blue" },
+              fill: "tonexty",
+              name: "Upper Estimate",
+            };
+
+            const layout = {
+              title: `Hospital Discharge Forecast - ${selectedHospital}`,
+              xaxis: { title: "Date" },
+              yaxis: { title: "Number of Discharges" },
+            };
+
+            const lowerTrace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat_lower),
+              line: { shape: "spline", color: "green" },
+              fill: "tonexty",
+              name: "Lower Estimate",
+            };
+
+            // Plot
+            Plotly.newPlot(
+              "discharge-plotly-graph",
+              [trace, lowerTrace, upperTrace],
+              layout,
+            );
+          });
+      });
+    </script>
+
+    <div>
+      <label for="hospital-dropdown">Select Hospital:</label>
+      <select id="hospital-dropdown">
+        <option value="All">All</option>
+        <!-- The rest of the options will be populated by JavaScript -->
+      </select>
+    </div>
+    <div class="heatmap-container">
+      <div id="admission-heatmap"></div>
+      <div id="discharge-heatmap"></div>
+    </div>
+    <script src="AdmitHeatMap.js"></script>
+    <script src="DischargeHeatMap.js"></script>
+    <script src="heatmap_logic.js"></script>
+    <style>
+      .heatmap-container {
+        display: flex;
+        justify-content: space-between;
+      }
+    </style>
+
+    document.addEventListener('DOMContentLoaded', (event) => { const
+    hospitalNames = [...new Set(filteredDischarges.map(d => d.hospital_name))];
+    const selector = document.getElementById('hospital-dropdown');
+    hospitalNames.forEach(name => { const option =
+    document.createElement('option'); option.text = name; option.value = name;
+    selector.appendChild(option); }); selector.addEventListener('change',
+    function() { const selectedHospital = selector.value; const hospitalData =
+    filteredDischarges.filter(d => d.hospital_name === selectedHospital); //
+    Call the update function for the heatmap updateHeatmap(selectedHospital,
+    hospitalData); // If there's any specific logic for the admit-plotButton in
+    the first script, // you can call it here or define a separate function to
+    handle it }); // If there is a button in the first script that requires an
+    event listener, add it here //
+    document.getElementById('admit-plotButton').addEventListener('click',
+    function() { // // button click logic // }); });
+
+    <script>
+      document.addEventListener("DOMContentLoaded", (event) => {
+        // Extract unique hospital names for dropdown menu
+        const hospitalNames = [
+          ...new Set(filteredLOS.map((d) => d.hospital_name)),
+        ];
+
+        // Populate the dropdown menu
+        const selector = document.getElementById("admit-hospitalSelector");
+        hospitalNames.forEach((name) => {
+          const option = document.createElement("option");
+          option.text = name;
+          option.value = name;
+          selector.appendChild(option);
+        });
+
+        // Add event listener to the button
+        document
+          .getElementById("admit-plotButton")
+          .addEventListener("click", function () {
+            const selectedHospital = selector.value;
+            const hospitalData = filteredLOS.filter(
+              (d) => d.hospital_name === selectedHospital,
+            );
+
+            function formatDateWithDay(dateString) {
+              const days = [
+                "Sunday",
+                "Monday",
+                "Tuesday",
+                "Wednesday",
+                "Thursday",
+                "Friday",
+                "Saturday",
+              ];
+              const date = new Date(dateString);
+              const dayOfWeek = days[date.getDay()];
+              return `${dateString} (${dayOfWeek})`;
+            }
+
+            const trace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat),
+              line: { shape: "spline" },
+              name: "Estimate",
+              text: hospitalData.map((d) => formatDateWithDay(d.ds)), // Add this line
+            };
+
+            const upperTrace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat_upper),
+              line: { shape: "spline", color: "blue" },
+              fill: "tonexty",
+              name: "Upper Estimate",
+            };
+
+            const layout = {
+              title: `Hospital LOS Forecast - ${selectedHospital}`,
+              xaxis: { title: "Date" },
+              yaxis: { title: "LOS Forecast - Hours" },
+            };
+
+            const lowerTrace = {
+              type: "scatter",
+              mode: "lines",
+              x: hospitalData.map((d) => d.ds),
+              y: hospitalData.map((d) => d.yhat_lower),
+              line: { shape: "spline", color: "green" },
+              fill: "tonexty",
+              name: "Lower Estimate",
+            };
+
+            // Plot
+            Plotly.newPlot(
+              "los-plotly-graph",
+              [trace, lowerTrace, upperTrace],
+              layout,
+            );
+          });
+      });
+    </script>
+
+    <h2>Bed Occupancy Forecast</h2>
+    <label for="hospitalSelector">Select Hospital: </label>
+    <select id="hospitalSelector" onchange="updateContent()">
+      <!-- Options will be dynamically generated with JavaScript -->
+    </select>
+    <button id="displayButton">Display</button>
+    <br /><br />
+    <table id="bedOccupancyTable">
+      <thead>
+        <tr>
+          <th>Date</th>
+          <th>Hospital</th>
+          <th>Beds Occupied</th>
+          <th>Beds Available</th>
+          <th>Total Beds</th>
+        </tr>
+      </thead>
+      <tbody>
+        <!-- Data will be dynamically populated with JavaScript -->
+      </tbody>
+    </table>
+
+    <h2>Diagnosis and Comorbidity Tables</h2>
+    <h2>Primary Diagnosis Data</h2>
+    <table id="primaryDiagnosisTable">
+      <!-- Table data will be populated from the JavaScript -->
+    </table>
+
+    <h2>Comorbidity Data</h2>
+    <table id="comorbidityTable">
+      <!-- Table data will be populated from the JavaScript -->
+    </table>
+
+    <!-- Including the data files -->
+    <script src="Filtered_Bed_Occupancy_Forecast.js"></script>
+    <script src="Comorbidity_data.js"></script>
+    <script src="PrimaryDiagnosis_data.js"></script>
+    <script>
+      // Populate the dropdown with unique hospital names
+      const hospitalNames = [
+        ...new Set([
+          ...filteredBedOcc.map((d) => d.hospital_name),
+          ...Comorbidities.map((item) => item.hospital_name),
+          ...Primary_Diagnosis.map((item) => item.hospital_name),
+        ]),
+      ];
+
+      const dropdown = document.getElementById("hospitalSelector");
+      hospitalNames.forEach((name) => {
+        const option = document.createElement("option");
+        option.text = name;
+        option.value = name;
+        dropdown.appendChild(option);
+      });
+
+      // Add event listener to the button
+      document
+        .getElementById("displayButton")
+        .addEventListener("click", function () {
+          updateBedOccupancyTable();
+          updateDiagnosisAndComorbidityTables();
+        });
+
+      function updateContent() {
+        updateBedOccupancyTable();
+        updateDiagnosisAndComorbidityTables();
+      }
+
+      function updateBedOccupancyTable() {
+        const selectedHospital = dropdown.value;
+        const relevantDates = ["2023-10-15", "2023-10-14", "2023-10-16"]; // You might want to adjust this
+        const filteredData = filteredBedOcc.filter(
+          (item) =>
+            item.hospital_name === selectedHospital &&
+            relevantDates.includes(item.ds),
+        );
+
+        const tableBody = document
+          .getElementById("bedOccupancyTable")
+          .getElementsByTagName("tbody")[0];
+        tableBody.innerHTML = "";
+        filteredData.forEach((item) => {
+          const row = tableBody.insertRow();
+          const cell1 = row.insertCell(0);
+          const cell2 = row.insertCell(1);
+          const cell3 = row.insertCell(2);
+          const cell4 = row.insertCell(3);
+          const cell5 = row.insertCell(4);
+
+          cell1.innerHTML = item.ds;
+          cell2.innerHTML = item.hospital_name;
+          cell3.innerHTML = item.Beds_Occupied;
+          cell4.innerHTML = item.Beds_Available;
+          cell5.innerHTML = item.Beds_Total;
+        });
+      }
+
+      function updateDiagnosisAndComorbidityTables() {
+        const selectedHospital = dropdown.value;
+
+        const primaryDiagnosisData = Primary_Diagnosis.filter(
+          (item) => item.hospital_name === selectedHospital,
+        );
+        const comorbidityData = Comorbidities.filter(
+          (item) => item.hospital_name === selectedHospital,
+        );
+
+        createTable(
+          "primaryDiagnosisTable",
+          primaryDiagnosisData,
+          "Primary_Diagnosis_Description",
+        );
+        createTable(
+          "comorbidityTable",
+          comorbidityData,
+          "Comorbidity_Description",
+        );
+      }
+
+      function createTable(tableId, data, descriptionField) {
+        const table = document.getElementById(tableId);
+        table.innerHTML = "";
+
+        const headerRow = table.insertRow();
+        headerRow.insertCell().textContent = "Description";
+        headerRow.insertCell().textContent = "Previous Week";
+        headerRow.insertCell().textContent = "Current Week";
+        headerRow.insertCell().textContent = "Next Week";
+
+        const groupedData = {};
+        data.forEach((item) => {
+          if (!groupedData[item[descriptionField]]) {
+            groupedData[item[descriptionField]] = {
+              previous: "",
+              current: "",
+              next: "",
+            };
+          }
+          groupedData[item[descriptionField]][item.week] = item.percentage;
+        });
+
+        for (let description in groupedData) {
+          const row = table.insertRow();
+          row.insertCell().textContent = description;
+          row.insertCell().textContent =
+            groupedData[description].previous + "%";
+          row.insertCell().textContent = groupedData[description].current + "%";
+          row.insertCell().textContent = groupedData[description].next + "%";
+        }
+      }
+    </script>
+  </body>
+</html>

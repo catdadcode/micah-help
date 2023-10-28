@@ -1,5 +1,4 @@
 // Import third party libraries.
-import "leaflet/dist/leaflet.css";
 import L from "leaflet";
 import Plotly from "plotly.js-dist-min";
 import { formatDateWithDay } from "./utils";
@@ -58,22 +57,16 @@ const bedOccupancyForecast = bedOccupancyForecastData as BedOccupancyForecast[];
 const [
 	$map,
 	$hospitalDropdown,
-	$submitButton,
 	$admissionsGraph,
 	$dischargeGraph,
-	$admissionsPlotlyGraph,
-	$dischargePlotlyGraph,
-	$losPlotlyGraph,
+	$losGraph,
 	$bedOccupancyTable
 ] = [
 	"map",
 	"hospitalDropdown",
-	"submitButton",
 	"admissionsGraph",
 	"dischargeGraph",
-	"admissionsPlotlyGraph",
-	"dischargePlotlyGraph",
-	"losPlotlyGraph",
+	"losGraph",
 	"bedOccupancyTable"
 ].map((elementId) => {
 	const $element = document.getElementById(elementId);
@@ -82,9 +75,6 @@ const [
 }) as [
 		HTMLDivElement,
 		HTMLSelectElement,
-		HTMLButtonElement,
-		HTMLDivElement,
-		HTMLDivElement,
 		HTMLDivElement,
 		HTMLDivElement,
 		HTMLDivElement,
@@ -114,37 +104,40 @@ console.log(`Latest Date in Dataset: ${latestDate}`);
 const filteredData = admissionsAboveAverage.filter(
 	(item) =>
 		item.ds === latestDate &&
-		item.long! >= 45 &&
-		item.long! <= 49 &&
-		item.lat! >= -125 &&
-		item.lat! <= -116
+		item.long >= 45 &&
+		item.long <= 49 &&
+		item.lat >= -125 &&
+		item.lat <= -116
 );
 console.log(`Filtered Data Count: ${filteredData.length}`);
-console.log(`Filtered Data Points: ${filteredData}`);
+console.log(`Filtered Data Points:`, filteredData);
 
 // Initialize the map.
-const map = L.map("map").setView([47.7511, -120.7401], 7); // Centered on Washington State
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-	attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+const map = L.map($map).setView([47.7511, -120.7401], 7); // Centered on Washington State
+L.tileLayer(
+	"https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+	{ attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }
+).addTo(map);
 filteredData.forEach((item) => {
 	const color = item.above_avg ? "red" : "blue";
-	const marker = L.circleMarker([item.long!, item.lat!], {
+	const marker = L.circleMarker([item.long, item.lat], {
 		color,
 		fillColor: color,
 		fillOpacity: 0.5,
-		radius: 5
+		radius: 10
 	}).addTo(map);
 	marker.bindPopup(item.hospital_name);
-	marker.on("click", function() {
-		const hospitalName = this.getPopup().getContent();
-		$hospitalDropdown.value = hospitalName;
+	marker.on("mouseover", () => marker.openPopup());
+	marker.on("mouseout", () => marker.closePopup());
+	marker.on("click", () => {
+		$hospitalDropdown.value = item.hospital_name;
+		$hospitalDropdown.dispatchEvent(new Event("change"));
 	});
 });
 
 // Adjusting map bounds to fit all markers.
 const group = L.featureGroup(
-	filteredData.map((item) => L.circleMarker([item.long!, item.lat!]))
+	filteredData.map((item) => L.circleMarker([item.long, item.lat]))
 );
 map.fitBounds(group.getBounds());
 
@@ -154,22 +147,6 @@ function drawAdmissionsGraph() {
 
 	Plotly.newPlot(
 		$admissionsGraph,
-		[{
-			type: "scatter",
-			mode: "lines",
-			x: hospitalData.map((item) => item.ds),
-			y: hospitalData.map((item) => item.yhat),
-			line: { shape: "spline" }
-		}],
-		{
-			title: `Hospital Admissions Forecast - ${selectedHospital}`,
-			xaxis: { title: "Date" },
-			yaxis: { title: "Admissions Forecast" }
-		}
-	);
-
-	Plotly.newPlot(
-		$admissionsPlotlyGraph,
 		[
 			{
 				type: "scatter",
@@ -213,38 +190,6 @@ function drawDischargesGraph() {
 
 	Plotly.newPlot(
 		$dischargeGraph,
-		[{
-			type: "scatter",
-			mode: "lines",
-			x: hospitalData.map((item) => item.ds),
-			y: hospitalData.map((item) => item.yhat),
-			line: { shape: "spline" }
-		}],
-		{
-			title: `Hospital Discharges Forecast - ${selectedHospital}`,
-			xaxis: { title: "Date" },
-			yaxis: { title: "Discharges Forecast" }
-		}
-	);
-
-	Plotly.newPlot(
-		$dischargePlotlyGraph,
-		[{
-			type: "scatter",
-			mode: "lines",
-			x: hospitalData.map((item) => item.ds),
-			y: hospitalData.map((item) => item.yhat),
-			line: { shape: "spline" },
-		}],
-		{
-			title: `Hospital Discharges Forecast - ${selectedHospital}`,
-			xaxis: { title: "Date" },
-			yaxis: { title: "Discharges Forecast" }
-		}
-	);
-
-	Plotly.newPlot(
-		$dischargePlotlyGraph,
 		[
 			{
 				type: "scatter",
@@ -287,23 +232,7 @@ function drawLengthOfStaysGraph() {
 	const hospitalData = losForecast.filter((item) => item.hospital_name === selectedHospital);
 
 	Plotly.newPlot(
-		$losPlotlyGraph,
-		[{
-			type: "scatter",
-			mode: "lines",
-			x: hospitalData.map((item) => item.ds),
-			y: hospitalData.map((item) => item.yhat),
-			line: { shape: "spline" },
-		}],
-		{
-			title: `Hospital LOS Forecast - ${selectedHospital}`,
-			xaxis: { title: "Date" },
-			yaxis: { title: "LOS Forecast" }
-		}
-	);
-
-	Plotly.newPlot(
-		$losPlotlyGraph,
+		$losGraph,
 		[
 			{
 				type: "scatter",
@@ -345,24 +274,31 @@ function populateBedOccupancyTable() {
 	const selectedHospital = $hospitalDropdown.value;
 	const relevantData = ["2023-10-15", "2023-10-14", "2023-10-16"];
 	const filteredData = bedOccupancyForecast.filter((item) => item.hospital_name === selectedHospital && relevantData.includes(item.ds));
-	const $tableBody = $bedOccupancyTable.getElementsByTagName("tbody")[0];
-	$tableBody.innerHTML = "";
-	filteredData.forEach((item) => {
-		const row = $tableBody.insertRow();
-		const cell1 = row.insertCell(0);
-		const cell2 = row.insertCell(1);
-		const cell3 = row.insertCell(2);
-		const cell4 = row.insertCell(3);
-		const cell5 = row.insertCell(4);
-		cell1.innerHTML = item.ds;
-		cell2.innerHTML = item.hospital_name;
-		cell3.innerHTML = item.Beds_Occupied.toString();
-		cell4.innerHTML = item.Beds_Available.toString();
-		cell5.innerHTML = item.Beds_Total.toString();
-	});
+	if (filteredData.length > 0) {
+		$bedOccupancyTable.classList.remove("hidden");
+		const $tableBody = $bedOccupancyTable.getElementsByTagName("tbody")[0];
+		$tableBody.innerHTML = "";
+		filteredData.forEach((item) => {
+			const row = $tableBody.insertRow();
+			const fields = [
+				item.ds,
+				item.hospital_name,
+				item.Beds_Occupied.toString(),
+				item.Beds_Available.toString(),
+				item.Beds_Total.toString()
+			]
+			for (const field of fields) {
+				const cell = row.insertCell();
+				cell.className = "py-2 px-4 border border-slate-400";
+				cell.innerHTML = field;
+			}
+		});
+	} else {
+		$bedOccupancyTable.classList.add("hidden");
+	}
 }
 
-$submitButton.addEventListener("click", () => {
+$hospitalDropdown.addEventListener("change", () => {
 	drawAdmissionsGraph();
 	drawDischargesGraph();
 	drawLengthOfStaysGraph();
