@@ -7,6 +7,8 @@ import admissionsForecastData from "./data/Filtered_All_Hospitals_Admissions_For
 import dischargesForecastData from "./data/Filtered_All_Hospitals_Discharges_Forecast.json";
 import losForecastData from "./data/Filtered_All_Hospitals_LOS_Forecast.json";
 import bedOccupancyForecastData from "./data/Filtered_Bed_Occupancy_Forecast.json";
+import admissionsHeatMapData from "./data/Admissions_Heat_Map_Data.json";
+import dischargesHeatMapData from "./data/Discharges_Heat_Map_Data.json";
 
 // Types
 type AdmissionAboveAverage = {
@@ -45,6 +47,24 @@ type BedOccupancyForecast = {
 	Beds_Available: number;
 	Beds_Total: number;
 };
+type AdmissionsHeatMapData = {
+	hospital_name: string;
+	admission_month: string;
+	admit_weekday: string;
+	admission_hour: number;
+	U_R_CAH_BEH_TRA: string;
+	percentage: number;
+	_row: string;
+};
+type DischargesHeatMapData = {
+	hospital_name: string;
+	discharge_month: string;
+	discharge_weekday: string;
+	discharge_hour: number;
+	U_R_CAH_BEH_TRA: string;
+	percentage: number;
+	_row: string;
+};
 
 // Typed data sets.
 const admissionsAboveAverage = admissionsAboveAverageData as AdmissionAboveAverage[];
@@ -52,6 +72,8 @@ const admissionsForecast = admissionsForecastData as AdmissionForecast[];
 const dischargesForecast = dischargesForecastData as DischargeForecast[];
 const losForecast = losForecastData as LOSForecast[];
 const bedOccupancyForecast = bedOccupancyForecastData as BedOccupancyForecast[];
+const admissionsHeatMap = admissionsHeatMapData as AdmissionsHeatMapData[];
+const dischargesHeatMap = dischargesHeatMapData as DischargesHeatMapData[];
 
 // DOM References.
 const [
@@ -60,14 +82,18 @@ const [
 	$admissionsGraph,
 	$dischargeGraph,
 	$losGraph,
-	$bedOccupancyTable
+	$bedOccupancyTable,
+	$admissionsHeatMap,
+	$dischargesHeatMap
 ] = [
 	"map",
 	"hospitalDropdown",
 	"admissionsGraph",
 	"dischargeGraph",
 	"losGraph",
-	"bedOccupancyTable"
+	"bedOccupancyTable",
+	"admissionsHeatMap",
+	"dischargesHeatMap"
 ].map((elementId) => {
 	const $element = document.getElementById(elementId);
 	if (!$element) throw new Error(`DOM element '${elementId}' not found.`);
@@ -78,28 +104,44 @@ const [
 		HTMLDivElement,
 		HTMLDivElement,
 		HTMLDivElement,
-		HTMLTableElement
+		HTMLTableElement,
+		HTMLDivElement,
+		HTMLDivElement
 	];
+
+// Remove bounce effect from dropdown when user interacts with it.
+const removeBounceEffect = () => {
+	$hospitalDropdown.classList.remove("animate-bounce");
+	$hospitalDropdown.removeEventListener("click", removeBounceEffect);
+	$hospitalDropdown.removeEventListener("mouseover", removeBounceEffect);
+};
+$hospitalDropdown.addEventListener("click", removeBounceEffect);
+$hospitalDropdown.addEventListener("mouseover", removeBounceEffect);
 
 // Find all unique hospital names from the available datasets and populate the dropdown options.
 const hospitalNames = Array.from(new Set([
 	...admissionsForecast.map((item) => item.hospital_name),
 	...dischargesForecast.map((item) => item.hospital_name),
 	...losForecast.map((item) => item.hospital_name),
-	...bedOccupancyForecast.map((item) => item.hospital_name)
+	...bedOccupancyForecast.map((item) => item.hospital_name),
+	...admissionsHeatMap.map((item) => item.hospital_name),
+	...dischargesHeatMap.map((item) => item.hospital_name)
 ]));
-const $options = hospitalNames.map((name) => {
-	const $option = document.createElement("option");
-	$option.text = name;
-	$option.value = name;
-	return $option;
-});
+const $options = hospitalNames
+	// HACK: Some datasets have "All" instead of "All Hospitals" as an item. We are omitting adding "All" to the dropdown in favor of "All Hospitals"
+	// and then turning "All Hospitals" into "All" for those datasets that contain "All".
+	.filter((name) => name !== "All")
+	.map((name) => {
+		const $option = document.createElement("option");
+		$option.text = name;
+		$option.value = name;
+		return $option;
+	});
 $hospitalDropdown.append(...$options);
 
 // Determine the latest date in the dataset.
 const dates = admissionsAboveAverage.map((item) => item.ds);
 const latestDate = dates.reduce((a, b) => (a > b ? a : b));
-console.log(`Latest Date in Dataset: ${latestDate}`);
 // Filter data based on the latest date and valid lat/lng values.
 const filteredData = admissionsAboveAverage.filter(
 	(item) =>
@@ -109,8 +151,6 @@ const filteredData = admissionsAboveAverage.filter(
 		item.lat >= -125 &&
 		item.lat <= -116
 );
-console.log(`Filtered Data Count: ${filteredData.length}`);
-console.log(`Filtered Data Points:`, filteredData);
 
 // Initialize the map.
 const map = L.map($map).setView([47.7511, -120.7401], 7); // Centered on Washington State
@@ -271,7 +311,11 @@ function drawLengthOfStaysGraph() {
 }
 
 function populateBedOccupancyTable() {
-	const selectedHospital = $hospitalDropdown.value;
+	let selectedHospital = $hospitalDropdown.value;
+
+	// HACK: The dataset for bed occupancy has entries called "All" instead of "All Hospitals" so we are translaitng "All Hospitals" to "All" for this dataset only.
+	if (selectedHospital === "All Hospitals") selectedHospital = "All";
+
 	const relevantData = ["2023-10-15", "2023-10-14", "2023-10-16"];
 	const filteredData = bedOccupancyForecast.filter((item) => item.hospital_name === selectedHospital && relevantData.includes(item.ds));
 	if (filteredData.length > 0) {
@@ -298,9 +342,103 @@ function populateBedOccupancyTable() {
 	}
 }
 
+function drawAdmissionsHeatmMap() {
+	let selectedHospital = $hospitalDropdown.value;
+
+	// HACK: The dataset for admissions heat map has entries called "All" instead of "All Hospitals" so we are translaitng "All Hospitals" to "All" for this dataset only.
+	if (selectedHospital === "All Hospitals") selectedHospital = "All";
+
+	const filteredData = admissionsHeatMap.filter((item) => item.hospital_name === selectedHospital);
+	const daysOfTheWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+	const hoursInADay = Array.from({ length: 24 }, (_, index) => index); // [0, 1, 2, ... 23]
+	const percentages = hoursInADay.map((hour) => daysOfTheWeek.map((day) => {
+		const entry = filteredData.find((item) => item.admit_weekday === day && item.admission_hour === hour);
+		return entry ? entry.percentage : 0;
+	}));
+	const maxPercentage = Math.max(...percentages.flat());
+
+	Plotly.newPlot(
+		$admissionsHeatMap,
+		[{
+			x: daysOfTheWeek,
+			y: hoursInADay,
+			z: percentages,
+			type: "heatmap",
+			colorscale: "Viridis",
+			zmin: 0,
+			zmax: maxPercentage,
+			colorbar: {
+				title: "Percentage:",
+				titleside: "right"
+			}
+		}],
+		{
+			title: `Admissions Heatmap for ${selectedHospital}`,
+			xaxis: { title: "Day of Week" },
+			yaxis: {
+				title: "Hour of Day",
+				tickvals: hoursInADay,
+				ticktext: hoursInADay.map((hour) => `${hour}:00`)
+			}
+		}
+	)
+}
+
+function drawDischargesHeatmMap() {
+	let selectedHospital = $hospitalDropdown.value;
+
+	// HACK: The dataset for discharges heat map has entries called "All" instead of "All Hospitals" so we are translaitng "All Hospitals" to "All" for this dataset only.
+	if (selectedHospital === "All Hospitals") selectedHospital = "All";
+
+	const filteredData = dischargesHeatMap.filter((item) => item.hospital_name === selectedHospital);
+	const daysOfTheWeek = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+	const hoursInADay = Array.from({ length: 24 }, (_, index) => index); // [0, 1, 2, ... 23]
+	const percentages = hoursInADay.map((hour) => daysOfTheWeek.map((day) => {
+		const entry = filteredData.find((item) => item.discharge_weekday === day && item.discharge_hour === hour);
+		return entry ? entry.percentage : 0;
+	}));
+	const maxPercentage = Math.max(...percentages.flat());
+
+	Plotly.newPlot(
+		$dischargesHeatMap,
+		[{
+			x: daysOfTheWeek,
+			y: hoursInADay,
+			z: percentages,
+			type: "heatmap",
+			colorscale: "Viridis",
+			zmin: 0,
+			zmax: maxPercentage,
+			colorbar: {
+				title: "Percentage:",
+				titleside: "right"
+			}
+		}],
+		{
+			title: `Discharges Heatmap for ${selectedHospital}`,
+			xaxis: { title: "Day of Week" },
+			yaxis: {
+				title: "Hour of Day",
+				tickvals: hoursInADay,
+				ticktext: hoursInADay.map((hour) => `${hour}:00`)
+			}
+		}
+	)
+}
+
 $hospitalDropdown.addEventListener("change", () => {
 	drawAdmissionsGraph();
 	drawDischargesGraph();
 	drawLengthOfStaysGraph();
 	populateBedOccupancyTable();
+	drawAdmissionsHeatmMap();
+	drawDischargesHeatmMap();
 });
+
+
+drawAdmissionsGraph();
+drawDischargesGraph();
+drawLengthOfStaysGraph();
+populateBedOccupancyTable();
+drawAdmissionsHeatmMap();
+drawDischargesHeatmMap();
